@@ -103,7 +103,7 @@ function update_dependent_rates!(p::AbstractSSAJumpAggregator, u, params, t)
     sum_rate    = p.sum_rate
     @inbounds for rx in dep_rxs
         sum_rate -= cur_rates[rx]
-        @inbounds cur_rates[rx] = calculate_jump_rate(p,u,params,t,rx)
+        @inbounds cur_rates[rx] = calculate_jump_rate(p.ma_jumps, p.rates, u,params,t,rx)
         sum_rate += cur_rates[rx]
     end
 
@@ -130,7 +130,7 @@ end
 
 "check if the total rate is 0 and if it is, make the next jump time Inf"
 @inline function nomorejumps!(p, sum_rate) :: Bool
-    if abs(sum_rate < eps(typeof(sum_rate)))
+    if sum_rate < eps(typeof(sum_rate))
         p.next_jump = 0
         p.next_jump_time = convert(typeof(sum_rate), Inf)
         return true
@@ -150,16 +150,16 @@ end
 end
 
 "perform rejection sampling test"
-@inline function rejectrx(p, u, jidx, params, t)
+@inline function rejectrx(ma_jumps, rates, cur_rate_high, cur_rate_low, rng, u, jidx, params, t)
     # rejection test
-    @inbounds r2     = rand(p.rng) * p.cur_rate_high[jidx]
-    @inbounds crlow  = p.cur_rate_low[jidx]
+    @inbounds r2     = rand(rng) * cur_rate_high[jidx]
+    @inbounds crlow  = cur_rate_low[jidx]
 
-    @inbounds if crlow > zero(crlow) && r2 <= crlow
+    if crlow > zero(crlow) && r2 <= crlow
         return false
     else
         # calculate actual propensity, split up for type stability
-        @inbounds crate = calculate_jump_rate(p,u,params,t,jidx)
+        crate = calculate_jump_rate(ma_jumps, rates, u, params, t, jidx)
         if crate > zero(crate) && r2 <= crate
             return false
         end
@@ -168,12 +168,11 @@ end
 end
 
 "update the jump rate, assuming p.rates is a vector of functions"
-@inline function calculate_jump_rate(p, u, params, t, rx)
-    ma_jumps = p.ma_jumps
+@inline function calculate_jump_rate(ma_jumps, rates, u, params, t, rx)
     num_majumps = get_num_majumps(ma_jumps)
     if rx <= num_majumps
         return evalrxrate(u, rx, ma_jumps)
     else
-        @inbounds return p.rates[rx-num_majumps](u, params, t)
+        @inbounds return rates[rx - num_majumps](u, params, t)
     end
 end
