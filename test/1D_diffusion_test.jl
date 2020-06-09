@@ -22,7 +22,7 @@ rnpar = [1/(h*h)]
 u0 = 10*ones(Int64, N)
 tf = .01
 
-algs = (Direct(), RDirect(), DirectFW(),SortingDirect(),NRM(),DirectCR(),RSSA())
+algs = DiffEqJump.JUMP_AGGREGATORS
 shortlabels = [string(leg)[1:end-2] for leg in algs]
 prob    = prob = DiscreteProblem(u0, (0.0, tf), rnpar)
 # # ploth   = plot(reuse=false)
@@ -74,5 +74,5 @@ df = DataFrame(names=shortlabels,medtimes=medtimes,relmedtimes=(medtimes/medtime
                 sa = [string(round(mt,digits=4),"s") for mt in df.medtimes]
 bar(df.names,df.relmedtimes,legend=:false, fmt=fmt)
 scatter!(df.names, .05 .+ df.relmedtimes, markeralpha=0, series_annotations=sa, fmt=fmt)
-ylabel!("median relative to Direct")
+ylabel!("median relative to $(shortlabels[1])")
 title!("256 Site 1D Diffusion CTRW")
