@@ -111,6 +111,20 @@ function update_dependent_rates!(p::AbstractSSAJumpAggregator, u, params, t)
     nothing
 end
 
+function update_dependent_rates_access_fields!(p::AbstractSSAJumpAggregator, u, params, t)
+    @inbounds dep_rxs = p.dep_gr[p.next_jump]
+    cur_rates   = p.cur_rates
+    sum_rate    = p.sum_rate
+    @inbounds for rx in dep_rxs
+        sum_rate -= cur_rates[rx]
+        @inbounds cur_rates[rx] = calculate_jump_rate(p, u,params,t,rx)
+        sum_rate += cur_rates[rx]
+    end
+
+    p.sum_rate = sum_rate
+    nothing
+end
+
 # Update state based on the p.next_jump
 @inline function update_state!(p::AbstractSSAJumpAggregator, integrator, u)
     @unpack ma_jumps, next_jump = p
@@ -174,5 +188,15 @@ end
         return evalrxrate(u, rx, ma_jumps)
     else
         @inbounds return rates[rx - num_majumps](u, params, t)
+    end
+end
+
+"update the jump rate, assuming p.rates is a vector of functions"
+@inline function calculate_jump_rate(p, u, params, t, rx)
+    num_majumps = get_num_majumps(p.ma_jumps)
+    if rx <= num_majumps
+        return evalrxrate(u, rx, p.ma_jumps)
+    else
+        @inbounds return p.rates[rx - p.num_majumps](u, params, t)
     end
 end
