@@ -172,8 +172,25 @@ end
     if crlow > zero(crlow) && r2 <= crlow
         return false
     else
-        # calculate actual propensity, split up for type stability
+        # calculate actual propensity
         crate = calculate_jump_rate(ma_jumps, rates, u, params, t, jidx)
+        if crate > zero(crate) && r2 <= crate
+            return false
+        end
+    end
+    return true
+end
+
+@inline function rejectrx(p, u, jidx, params, t)
+    # rejection test
+    @inbounds r2     = rand(p.rng) * p.cur_rate_high[jidx]
+    @inbounds crlow  = p.cur_rate_low[jidx]
+
+    if crlow > zero(crlow) && r2 <= crlow
+        return false
+    else
+        # calculate actual propensity
+        crate = calculate_jump_rate(p, u, params, t, jidx)
         if crate > zero(crate) && r2 <= crate
             return false
         end
@@ -197,6 +214,6 @@ end
     if rx <= num_majumps
         return evalrxrate(u, rx, p.ma_jumps)
     else
-        @inbounds return p.rates[rx - p.num_majumps](u, params, t)
+        @inbounds return p.rates[rx - num_majumps](u, params, t)
     end
 end

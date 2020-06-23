@@ -19,37 +19,63 @@ u0 = round.(Int, u₀)
 println(typeof(u0))
 addjumps!(rn,build_regular_jumps=false, minimal_jumps=true)
 prob = DiscreteProblem(rn, u0, (0.,tf), p)
-function run_benchmark!(t, jump_prob, stepper)
-    println("    warmup")
-    sol = solve(jump_prob, stepper)
-    @inbounds for i in 1:length(t)
-        println("  $i/$(length(t))")
-        t[i] = @elapsed (sol = solve(jump_prob, stepper))
+
+jump_prob_direct_cr = JumpProblem(prob, DirectCR(), rn, save_positions=(false,false))
+integrator_direct_cr = init(jump_prob_direct_cr, SSAStepper())
+p_direct_cr = jump_prob_direct_cr.discrete_jump_aggregation;
+
+jump_prob_rssacr = JumpProblem(prob, RSSACR(), rn, save_positions=(false,false))
+integrator_rssacr = init(jump_prob_rssacr, SSAStepper())
+p_rssacr = jump_prob_rssacr.discrete_jump_aggregation;
+
+function run_n_steps(n, p, integrator)
+    for i in 1:n
+        p(integrator)
     end
+    nothing
 end
-nsims = 50
-benchmarks = Vector{Vector{Float64}}()
-for method in methods
-    println("Benchmarking method: ", method)
-    jump_prob = JumpProblem(prob, method, rn, save_positions=(false,false))
-    stepper = SSAStepper()
-    t = Vector{Float64}(undef,nsims)
-    run_benchmark!(t, jump_prob, stepper)
-    push!(benchmarks, t)
-end
-medtimes = Vector{Float64}(undef,length(methods))
-stdtimes = Vector{Float64}(undef,length(methods))
-avgtimes = Vector{Float64}(undef,length(methods))
-for i in 1:length(methods)
-    medtimes[i] = median(benchmarks[i])
-    avgtimes[i] = mean(benchmarks[i])
-    stdtimes[i] = std(benchmarks[i])
-end
-using DataFrames
-df = DataFrame(names=shortlabels,medtimes=medtimes,relmedtimes=(medtimes/medtimes[1]),
-                avgtimes=avgtimes, std=stdtimes, cv=stdtimes./avgtimes)
-sa = [string(round(mt,digits=4),"s") for mt in df.medtimes]
-bar(df.names,df.relmedtimes,legend=:false, fmt=fmt)
-scatter!(df.names, .025 .+df.relmedtimes, markeralpha=0, series_annotations=sa, fmt=fmt)
-ylabel!("median relative to $(shortlabels[1])")
-title!("BCR Network")
+solve(jump_prob_direct_cr, SSAStepper())
+solve(jump_prob_rssacr, SSAStepper())
+
+init_direct_allocs = @allocated p_direct_cr(0, integrator_direct_cr.u, integrator_direct_cr.t, integrator_direct_cr)
+init_rssa_allocs = @allocated p_rssacr(0, integrator_rssacr.u, integrator_rssacr.t, integrator_rssacr)
+
+direct_allocs = @allocated run_n_steps(10^6, p_direct_cr, integrator_direct_cr)
+rssa_allocs = @allocated run_n_steps(10^6, p_rssacr, integrator_rssacr)
+println("Direct CR allocated $init_direct_allocs bytes to initialize and $direct_allocs bytes to run")
+println("RSSA CR allocated $init_rssa_allocs bytes to initialize and $rssa_allocs bytes to run")
+
+# function run_benchmark!(t, jump_prob, stepper)
+#     println("    warmup")
+#     sol = solve(jump_prob, stepper)
+#     @inbounds for i in 1:length(t)
+#         println("  $i/$(length(t))")
+#         t[i] = @elapsed (sol = solve(jump_prob, stepper))
+#     end
+# end
+# nsims = 50
+# benchmarks = Vector{Vector{Float64}}()
+# for method in methods
+#     println("Benchmarking method: ", method)
+#     jump_prob = JumpProblem(prob, method, rn, save_positions=(false,false))
+#     stepper = SSAStepper()
+#     t = Vector{Float64}(undef,nsims)
+#     run_benchmark!(t, jump_prob, stepper)
+#     push!(benchmarks, t)
+# end
+# medtimes = Vector{Float64}(undef,length(methods))
+# stdtimes = Vector{Float64}(undef,length(methods))
+# avgtimes = Vector{Float64}(undef,length(methods))
+# for i in 1:length(methods)
+#     medtimes[i] = median(benchmarks[i])
+#     avgtimes[i] = mean(benchmarks[i])
+#     stdtimes[i] = std(benchmarks[i])
+# end
+# using DataFrames
+# df = DataFrame(names=shortlabels,medtimes=medtimes,relmedtimes=(medtimes/medtimes[1]),
+#                 avgtimes=avgtimes, std=stdtimes, cv=stdtimes./avgtimes)
+# sa = [string(round(mt,digits=4),"s") for mt in df.medtimes]
+# bar(df.names,df.relmedtimes,legend=:false, fmt=fmt)
+# scatter!(df.names, .025 .+df.relmedtimes, markeralpha=0, series_annotations=sa, fmt=fmt)
+# ylabel!("median relative to $(shortlabels[1])")
+# title!("BCR Network")
