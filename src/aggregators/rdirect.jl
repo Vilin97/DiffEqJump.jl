@@ -2,9 +2,6 @@
 Direct with rejection sampling
 """
 
-#global num_reactions = 0
-#global num_rejections = 0
-
 mutable struct RDirectJumpAggregation{T,S,F1,F2,RNG,DEPGR} <: AbstractSSAJumpAggregator
   next_jump::Int
   next_jump_time::T
@@ -77,6 +74,7 @@ end
 # set up a new simulation and calculate the first jump / jump time
 function initialize!(p::RDirectJumpAggregation, integrator, u, params, t)
     fill_rates_and_sum!(p, u, params, t)
+    p.max_rate = maximum(p.cur_rates)
     generate_jumps!(p, integrator, u, params, t)
     nothing
 end
@@ -101,37 +99,39 @@ function generate_jumps!(p::RDirectJumpAggregation, integrator, u, params, t)
     @unpack rng, cur_rates, max_rate = p
 
     num_rxs = length(cur_rates)
-    rx = trunc(Integer, rand(rng) * num_rxs)+1
-    while cur_rates[rx] < rand(rng) * max_rate
-        # global num_rejections += 1
-        rx = trunc(Integer, rand(rng) * num_rxs)+1
+    rx = trunc(Int, rand(rng) * num_rxs)+1
+    @inbounds while cur_rates[rx] < rand(rng) * max_rate
+        rx = trunc(Int, rand(rng) * num_rxs)+1
     end
-    # global num_reactions += 1
 
     p.next_jump = rx
 
-    # update time to next jump
     p.next_jump_time = t + randexp(p.rng) / sum_rate
-    # if (p.next_jump_time >= p.end_time)
-    #     println("Average number of rejections per reaction: $(num_rejections/num_reactions)")
-    # end
     nothing
 end
 
 
 ######################## SSA specific helper routines #########################
-
 function update_dependent_rates!(p::RDirectJumpAggregation, u, params, t)
     @inbounds dep_rxs = p.dep_gr[p.next_jump]
     @unpack ma_jumps, rates, cur_rates, sum_rate = p
+<<<<<<< HEAD
+=======
+    need_to_recalculate_max_rate = false
+>>>>>>> 296e34680535a9b03b79b079f65d0d93450878f0
     @inbounds for rx in dep_rxs
         sum_rate -= cur_rates[rx]
         @inbounds new_rate = calculate_jump_rate(ma_jumps, rates, u,params,t,rx)
         sum_rate += new_rate
-        cur_rates[rx] = new_rate
         if new_rate > p.max_rate
             p.max_rate = new_rate
+        elseif cur_rates[rx] == p.max_rate
+            need_to_recalculate_max_rate = true
         end
+        cur_rates[rx] = new_rate
+    end
+    if need_to_recalculate_max_rate
+        p.max_rate = maximum(p.cur_rates)
     end
 
     p.sum_rate = sum_rate
