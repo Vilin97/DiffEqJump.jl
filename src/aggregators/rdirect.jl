@@ -115,10 +115,7 @@ end
 function update_dependent_rates!(p::RDirectJumpAggregation, u, params, t)
     @inbounds dep_rxs = p.dep_gr[p.next_jump]
     @unpack ma_jumps, rates, cur_rates, sum_rate = p
-<<<<<<< HEAD
-=======
     need_to_recalculate_max_rate = false
->>>>>>> 296e34680535a9b03b79b079f65d0d93450878f0
     @inbounds for rx in dep_rxs
         sum_rate -= cur_rates[rx]
         @inbounds new_rate = calculate_jump_rate(ma_jumps, rates, u,params,t,rx)
