@@ -16,6 +16,7 @@ using StaticArrays, Base.Threads
 abstract type AbstractJump end
 abstract type AbstractAggregatorAlgorithm end
 abstract type AbstractJumpAggregator end
+abstract type AbstractSpatialAggregatorAlgorithm end
 
 import Base.Threads
 @static if VERSION < v"1.3"
@@ -49,6 +50,9 @@ include("coupling.jl")
 include("SSA_stepper.jl")
 include("simple_regular_solve.jl")
 
+include("spatial/to_spatial.jl")
+include("spatial/utils.jl")
+
 export ConstantRateJump, VariableRateJump, RegularJump, MassActionJump,
        JumpSet
 
@@ -68,5 +72,8 @@ export init, solve, solve!
 export reset_aggregated_jumps!
 
 export ExtendedJumpArray
+
+# spatial
+export WellMixedSpatial, connectivity_list_from_box, from_spatial_spec, to_spatial_spec, node_to_coordinates, coordinates_to_node, animate_2d
 
 end # module
