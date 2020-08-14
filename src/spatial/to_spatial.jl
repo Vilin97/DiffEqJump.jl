@@ -83,7 +83,7 @@ function to_spatial_jump_prob(connectivity_list, massaction_jump :: MassActionJu
     spatial_prob = DiscreteProblem(prob.u0, prob.tspan, rx_rates)
     spec_to_dep_rxs = DiffEqJump.spec_to_dep_rxs_map(num_spatial_species, spatial_majumps)
     rxs_to_dep_spec = DiffEqJump.rxs_to_dep_spec_map(spatial_majumps)
-    JumpProblem(spatial_prob, alg, spatial_majumps, save_positions = save_positions, vartojumps_map=spec_to_dep_rxs, jumptovars_map=rxs_to_dep_spec, rng = rng, kwargs...)
+    JumpProblem(spatial_prob, alg, spatial_majumps; save_positions = save_positions, vartojumps_map=spec_to_dep_rxs, jumptovars_map=rxs_to_dep_spec, rng = rng, kwargs...)
 end
 
 """
